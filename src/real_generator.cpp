@@ -36,7 +36,7 @@ std::pair<double, double> symmetric_height_offset(double t, double height)
 RealGenerator::RealGenerator(const SimConfig& cfg): cfg_(cfg) {}
 
 std::vector<std::tuple<int, double, double>> RealGenerator::associate_rotating_armors(
-    const std::vector<Observation>& obs_list, double pred_yaw_continuous, int armor_num)
+    const std::vector<ArmorObservation>& obs_list, double pred_yaw_continuous, int armor_num)
 {
     std::vector<std::tuple<int, double, double>> processed_obs;
     double angle_step = 2.0 * pi() / armor_num;
@@ -79,9 +79,9 @@ PoseSample RealGenerator::camera_pose_at(double t, double gimbal_yaw, double gim
     return pose;
 }
 
-Aim RealGenerator::make_standard_truth(double t, bool singer) const
+ArmorAim RealGenerator::make_standard_truth(double t, bool singer) const
 {
-    Aim aim;
+    ArmorAim aim;
     aim.id = singer ? 17 : 11;
     aim.type = singer ? 1 : 0;
 
@@ -122,7 +122,7 @@ Aim RealGenerator::make_standard_truth(double t, bool singer) const
     return aim;
 }
 
-std::vector<Aim> RealGenerator::make_top_truth(double t, double& vyaw) const
+std::vector<ArmorAim> RealGenerator::make_top_truth(double t, double& vyaw) const
 {
     double distance = resolved_distance(cfg_, "top");
     double base_yaw = 0.0;
@@ -197,12 +197,12 @@ std::vector<Aim> RealGenerator::make_top_truth(double t, double& vyaw) const
     double z1 = 0.67 + z_offset;
     double center_z = 0.5 * (z0 + z1);
 
-    std::vector<Aim> aims;
+    std::vector<ArmorAim> aims;
     for (int id = 0; id < 4; id++) {
         double radius = id % 2 == 0 ? 0.20 : 0.23;
         double z = id % 2 == 0 ? z0 : z1;
         double yaw = base_yaw + id * pi() * 0.5;
-        Aim aim;
+        ArmorAim aim;
         aim.id = id;
         aim.type = 1;
         aim.center_pos = Eigen::Vector3d(cx, cy, center_z);
@@ -218,7 +218,7 @@ std::vector<Aim> RealGenerator::make_top_truth(double t, double& vyaw) const
     return aims;
 }
 
-std::vector<Aim> RealGenerator::make_top3_truth(double t, double& vyaw) const
+std::vector<ArmorAim> RealGenerator::make_top3_truth(double t, double& vyaw) const
 {
     double distance = resolved_distance(cfg_, "outpost");
     if (cfg_.outpost_mode != "outpost_standard") {
@@ -232,11 +232,11 @@ std::vector<Aim> RealGenerator::make_top3_truth(double t, double& vyaw) const
     double cz = 0.76;
     double dz = 0.102;
 
-    std::vector<Aim> aims;
+    std::vector<ArmorAim> aims;
     for (int id = 0; id < 3; id++) {
         double scale = id == 0 ? 0.0 : (id == 1 ? 1.0 : -1.0);
         double yaw = base_yaw + id * 2.0 * pi() / 3.0;
-        Aim aim;
+        ArmorAim aim;
         aim.id = id;
         aim.type = 0;
         aim.center_pos = Eigen::Vector3d(cx, cy, cz);
@@ -252,10 +252,11 @@ std::vector<Aim> RealGenerator::make_top3_truth(double t, double& vyaw) const
     return aims;
 }
 
-Observation RealGenerator::make_observation(
-    const Aim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng, double armor_pitch) const
+ArmorObservation RealGenerator::make_observation(
+    const ArmorAim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng,
+    double armor_pitch) const
 {
-    Observation obs;
+    ArmorObservation obs;
     obs.t = t;
     obs.type = truth.type;
     obs.id = truth.id;
@@ -273,13 +274,13 @@ Observation RealGenerator::make_observation(
     return obs;
 }
 
-std::vector<Observation> RealGenerator::make_rotating_observations(
-    const std::vector<Aim>& truth_aims, double t, const CameraParam& cam, const PoseSample& pose,
+std::vector<ArmorObservation> RealGenerator::make_rotating_observations(
+    const std::vector<ArmorAim>& truth_aims, double t, const CameraParam& cam, const PoseSample& pose,
     std::mt19937& rng, int max_count, double armor_pitch) const
 {
-    std::vector<std::pair<double, Observation>> ranked;
+    std::vector<std::pair<double, ArmorObservation>> ranked;
     for (const auto& truth: truth_aims) {
-        Observation obs = make_observation(truth, t, cam, pose, rng, armor_pitch);
+        ArmorObservation obs = make_observation(truth, t, cam, pose, rng, armor_pitch);
         if (obs.corners.size() != 4) {
             continue;
         }
@@ -305,7 +306,7 @@ std::vector<Observation> RealGenerator::make_rotating_observations(
         return lhs.first < rhs.first;
     });
 
-    std::vector<Observation> obs_list;
+    std::vector<ArmorObservation> obs_list;
     for (size_t i = 0; i < ranked.size() && static_cast<int>(i) < max_count; i++) {
         obs_list.push_back(ranked[i].second);
     }

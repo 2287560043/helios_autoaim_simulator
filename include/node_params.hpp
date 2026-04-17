@@ -12,8 +12,8 @@ namespace helios_cv
 struct TrackerParamSet {
     SimpleTracker::Params simple;
     SingerTracker::Params singer;
-    DDMParams top;
-    DCMParams top3;
+    ArmorDDMParams top;
+    ArmorDCMParams top3;
 };
 
 std::string find_default_params_file();

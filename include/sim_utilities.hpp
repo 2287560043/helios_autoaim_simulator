@@ -148,7 +148,7 @@ struct SelectorState {
 };
 
 struct CommandResult {
-    Aim hit;
+    ArmorAim hit;
     double yaw_deg = nan_v();
     double pitch_deg = nan_v();
     double fly_time = 0.0;
@@ -283,14 +283,14 @@ inline void latch_gimbal_command(const CommandResult& cmd, double& yaw, double& 
     pitch = angles::from_degrees(cmd.pitch_deg);
 }
 
-inline double truth_pitch_deg(const Aim& hit, double bullet_speed, double gimbal_yaw)
+inline double truth_pitch_deg(const ArmorAim& hit, double bullet_speed, double gimbal_yaw)
 {
     if (hit.id < 0 || !finite_vec(hit.aim_pos)) return nan_v();
     Trajectory traj(hit.aim_pos, bullet_speed, gimbal_yaw);
     return angles::to_degrees(traj.solvable() ? traj.get_pitch() : command_pitch(hit.aim_pos));
 }
 
-inline CommandResult raw_observation_command(const Observation& obs, double bullet_speed, double gimbal_yaw)
+inline CommandResult raw_observation_command(const ArmorObservation& obs, double bullet_speed, double gimbal_yaw)
 {
     CommandResult result;
     result.hit.id = obs.id;
@@ -303,8 +303,8 @@ inline CommandResult raw_observation_command(const Observation& obs, double bull
     return result;
 }
 
-inline const Observation* find_selected_observation(
-    const std::vector<Observation>& raw_obs, const std::vector<Observation>& processed_obs, int selected_id)
+inline const ArmorObservation* find_selected_observation(
+    const std::vector<ArmorObservation>& raw_obs, const std::vector<ArmorObservation>& processed_obs, int selected_id)
 {
     size_t n = std::min(raw_obs.size(), processed_obs.size());
     for (size_t i = 0; i < n; i++) {
@@ -344,7 +344,7 @@ template <class SelectAt>
 CommandResult solve_command(double t, double bullet_speed, double latency_s, double gimbal_yaw, SelectAt&& select_at)
 {
     CommandResult result;
-    Aim preview_hit = select_at(t);
+    ArmorAim preview_hit = select_at(t);
     if (preview_hit.id < 0 || !finite_vec(preview_hit.aim_pos)) {
         return result;
     }
@@ -353,7 +353,7 @@ CommandResult solve_command(double t, double bullet_speed, double latency_s, dou
     double prev_fly_time = traj.solvable() ? traj.get_flyTime() : 0.0;
     double target_t = t + prev_fly_time + latency_s;
 
-    Aim final_hit = select_at(target_t);
+    ArmorAim final_hit = select_at(target_t);
     if (final_hit.id < 0 || !finite_vec(final_hit.aim_pos)) {
         return result;
     }
@@ -414,7 +414,7 @@ inline void update_current_metrics(
 }
 
 inline void update_future_metrics(
-    Report& report, const Aim& predicted, const Aim& truth, double t,
+    Report& report, const ArmorAim& predicted, const ArmorAim& truth, double t,
     bool& has_prev, double& prev_t, double& prev_yaw, double& prev_pitch)
 {
     if (predicted.id < 0 || truth.id < 0) {

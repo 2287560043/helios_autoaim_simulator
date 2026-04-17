@@ -20,15 +20,16 @@ TrackerParamSet resolve_tracker_params(const SimConfig& cfg)
 
 AutoaimGenerator::AutoaimGenerator(const SimConfig& cfg): cfg_(cfg), real_generator_(cfg), tracker_params_(resolve_tracker_params(cfg)) {}
 
-Aim AutoaimGenerator::select_standard_aim(
-    const std::vector<Aim>& aims, double vyaw, int top_level, double t, int armor_type, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id)
+ArmorAim AutoaimGenerator::select_standard_aim(
+    const std::vector<ArmorAim>& aims, double vyaw, int top_level, double t, int armor_type,
+    const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id)
 {
-    Aim result;
+    ArmorAim result;
     if (aims.empty()) {
         return result;
     }
 
-    auto armor_pos = [](const Aim& aim) {
+    auto armor_pos = [](const ArmorAim& aim) {
         return Eigen::Vector3d(
             aim.center_pos.x() + aim.radius * std::cos(aim.orient_yaw),
             aim.center_pos.y() + aim.radius * std::sin(aim.orient_yaw),
@@ -40,7 +41,7 @@ Aim AutoaimGenerator::select_standard_aim(
         last_id = top_level == 0 ? state.top0_lock_id : state.lock_id;
     }
 
-    auto in_view = [&](const Aim& aim) {
+    auto in_view = [&](const ArmorAim& aim) {
         double center2cam_yaw = std::atan2(camera_pos.y() - aim.center_pos.y(), camera_pos.x() - aim.center_pos.x());
         double diff = angles::normalize_angle(aim.orient_yaw - center2cam_yaw);
         double limit = 0.5 * 1.8 * (armor_type == 0 ? 0.135 : 0.23) / std::max(aim.radius, 1e-6);
@@ -50,8 +51,8 @@ Aim AutoaimGenerator::select_standard_aim(
     double keep = angles::from_degrees(10.0);
 
     if (top_level == 0) {
-        Aim best_armor;
-        Aim lock_armor;
+        ArmorAim best_armor;
+        ArmorAim lock_armor;
         double best_diff = std::numeric_limits<double>::infinity();
         double lock_diff = std::numeric_limits<double>::infinity();
         int visible_count = 0;
@@ -64,7 +65,7 @@ Aim AutoaimGenerator::select_standard_aim(
             double center2cam_yaw = std::atan2(camera_pos.y() - aim.center_pos.y(), camera_pos.x() - aim.center_pos.x());
             double diff = std::abs(angles::normalize_angle(aim.orient_yaw - center2cam_yaw));
             if (forced_id >= 0 && aim.id == forced_id) {
-                Aim selected = aim;
+                ArmorAim selected = aim;
                 selected.aim_pos = armor_pos(selected);
                 return selected;
             }
@@ -94,7 +95,7 @@ Aim AutoaimGenerator::select_standard_aim(
     }
 
     if (top_level == 2) {
-        Aim best_armor = aims[0];
+        ArmorAim best_armor = aims[0];
         double min_wait = std::numeric_limits<double>::infinity();
         double lock_wait = std::numeric_limits<double>::infinity();
 
@@ -111,7 +112,7 @@ Aim AutoaimGenerator::select_standard_aim(
                 wait = enter / std::abs(vyaw);
             }
             if (forced_id >= 0 && aim.id == forced_id) {
-                Aim selected = aim;
+                ArmorAim selected = aim;
                 double aim_yaw = selected.orient_yaw + wait * vyaw;
                 selected.orient_yaw = aim_yaw;
                 selected.aim_pos = Eigen::Vector3d(
@@ -152,18 +153,18 @@ Aim AutoaimGenerator::select_standard_aim(
         return best_armor;
     }
 
-    Aim best_armor;
+    ArmorAim best_armor;
     double best_diff = std::numeric_limits<double>::infinity();
     double best_wait = std::numeric_limits<double>::infinity();
     double direction = vyaw >= 0.0 ? 1.0 : -1.0;
-    auto get_diff = [&](const Aim& aim) {
+    auto get_diff = [&](const ArmorAim& aim) {
         double center2cam_yaw = std::atan2(camera_pos.y() - aim.center_pos.y(), camera_pos.x() - aim.center_pos.x());
         return direction * angles::normalize_angle(aim.orient_yaw - center2cam_yaw);
     };
 
     for (const auto& aim: aims) {
         if (forced_id >= 0 && aim.id == forced_id) {
-            Aim selected = aim;
+            ArmorAim selected = aim;
             selected.aim_pos = armor_pos(selected);
             return selected;
         }
@@ -172,7 +173,7 @@ Aim AutoaimGenerator::select_standard_aim(
         }
         double diff = get_diff(aim);
         if (diff >= -angles::from_degrees(58.8888) && diff <= angles::from_degrees(20.0)) {
-            Aim selected = aim;
+            ArmorAim selected = aim;
             selected.aim_pos = armor_pos(selected);
             return selected;
         }
@@ -214,14 +215,16 @@ Aim AutoaimGenerator::select_standard_aim(
     return best_armor;
 }
 
-Aim AutoaimGenerator::select_outpost_aim(const std::vector<Aim>& aims, double vyaw, double t, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id)
+ArmorAim AutoaimGenerator::select_outpost_aim(
+    const std::vector<ArmorAim>& aims, double vyaw, double t, const Eigen::Vector3d& camera_pos,
+    SelectorState& state, int forced_id)
 {
-    Aim result;
+    ArmorAim result;
     if (aims.empty()) {
         return result;
     }
 
-    auto armor_pos = [](const Aim& aim) {
+    auto armor_pos = [](const ArmorAim& aim) {
         return Eigen::Vector3d(
             aim.center_pos.x() + aim.radius * std::cos(aim.orient_yaw),
             aim.center_pos.y() + aim.radius * std::sin(aim.orient_yaw),
@@ -229,18 +232,18 @@ Aim AutoaimGenerator::select_outpost_aim(const std::vector<Aim>& aims, double vy
     };
 
     int last_id = t - state.last_lock_t <= 0.2 ? state.lock_id : -1;
-    Aim best_armor;
+    ArmorAim best_armor;
     double best_diff = std::numeric_limits<double>::infinity();
     double best_wait = std::numeric_limits<double>::infinity();
     double direction = vyaw >= 0.0 ? 1.0 : -1.0;
-    auto get_diff = [&](const Aim& aim) {
+    auto get_diff = [&](const ArmorAim& aim) {
         double center2cam_yaw = std::atan2(camera_pos.y() - aim.center_pos.y(), camera_pos.x() - aim.center_pos.x());
         return direction * angles::normalize_angle(aim.orient_yaw - center2cam_yaw);
     };
 
     for (const auto& aim: aims) {
         if (forced_id >= 0 && aim.id == forced_id) {
-            Aim selected = aim;
+            ArmorAim selected = aim;
             selected.aim_pos = armor_pos(selected);
             return selected;
         }
@@ -249,7 +252,7 @@ Aim AutoaimGenerator::select_outpost_aim(const std::vector<Aim>& aims, double vy
         }
         double diff = get_diff(aim);
         if (diff >= -angles::from_degrees(58.8888) && diff <= angles::from_degrees(20.0)) {
-            Aim selected = aim;
+            ArmorAim selected = aim;
             selected.aim_pos = armor_pos(selected);
             return selected;
         }
@@ -291,7 +294,7 @@ Aim AutoaimGenerator::select_outpost_aim(const std::vector<Aim>& aims, double vy
     return best_armor;
 }
 
-void AutoaimGenerator::update_standard_lock(const Aim& aim, int top_level, double t, SelectorState& state)
+void AutoaimGenerator::update_standard_lock(const ArmorAim& aim, int top_level, double t, SelectorState& state)
 {
     if (aim.id < 0) {
         return;
@@ -306,7 +309,7 @@ void AutoaimGenerator::update_standard_lock(const Aim& aim, int top_level, doubl
     state.last_lock_t = t;
 }
 
-void AutoaimGenerator::update_outpost_lock(const Aim& aim, double t, SelectorState& state)
+void AutoaimGenerator::update_outpost_lock(const ArmorAim& aim, double t, SelectorState& state)
 {
     if (aim.id < 0) {
         return;
@@ -362,10 +365,10 @@ Report AutoaimGenerator::run_simple_tracker() const
         double dt = compute_dt(rng, cfg_, stutter);
         bool occluded = is_occluded_frame(rng, cfg_, occlusion_left);
         double obs_t = std::max(0.0, t - cfg_.image_delay_ms * 0.001);
-        Aim truth = real_generator_.make_standard_truth(obs_t, false);
-        std::vector<Observation> obs_list;
+        ArmorAim truth = real_generator_.make_standard_truth(obs_t, false);
+        std::vector<ArmorObservation> obs_list;
         if (!occluded) {
-            Observation obs;
+            ArmorObservation obs;
             obs.t = t;
             obs.id = truth.id;
             obs.type = truth.type;
@@ -381,8 +384,8 @@ Report AutoaimGenerator::run_simple_tracker() const
         double pred_gimbal_yaw = gimbal_yaw_at(std::max(0.0, t - cfg_.imu_delay_ms * 0.001), angles::from_degrees(cfg_.imu_yaw_bias_deg));
         double truth_gimbal_yaw = gimbal_yaw_at(t, 0.0);
 
-        std::vector<Aim> aims = tracker.get_aims(t);
-        Aim current_hit = aims.empty() ? Aim {} : aims.front();
+        std::vector<ArmorAim> aims = tracker.get_aims(t);
+        ArmorAim current_hit = aims.empty() ? ArmorAim {} : aims.front();
         CommandResult predicted;
         predicted.hit = current_hit;
         if (predicted.hit.id >= 0) {
@@ -393,7 +396,7 @@ Report AutoaimGenerator::run_simple_tracker() const
             predicted.pitch_deg = angles::to_degrees(traj.solvable() ? traj.get_pitch() : command_pitch(predicted.hit.aim_pos));
         }
 
-        Aim truth_now = real_generator_.make_standard_truth(t, false);
+        ArmorAim truth_now = real_generator_.make_standard_truth(t, false);
         CommandResult truth_cmd;
         truth_cmd.hit = truth_now;
         Trajectory truth_traj(truth_now.aim_pos, bullet_speed, truth_gimbal_yaw);
@@ -403,8 +406,8 @@ Report AutoaimGenerator::run_simple_tracker() const
         truth_cmd.pitch_deg = angles::to_degrees(truth_traj.solvable() ? truth_traj.get_pitch() : command_pitch(truth_now.aim_pos));
 
         update_current_metrics(report, predicted, truth_cmd, t, has_prev, prev_t, prev_yaw, prev_pitch);
-        Aim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : Aim {};
-        Aim truth_future = real_generator_.make_standard_truth(t + 0.08, false);
+        ArmorAim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : ArmorAim {};
+        ArmorAim truth_future = real_generator_.make_standard_truth(t + 0.08, false);
         update_future_metrics(report, predicted_future, truth_future, t, has_future_prev, prev_future_t, prev_future_yaw, prev_future_pitch);
         CommandResult raw_cmd = obs_list.empty() ? CommandResult {} : raw_observation_command(obs_list.front(), bullet_speed, pred_gimbal_yaw);
 
@@ -464,10 +467,10 @@ Report AutoaimGenerator::run_singer_tracker() const
         double dt = compute_dt(rng, cfg_, stutter);
         bool occluded = is_occluded_frame(rng, cfg_, occlusion_left);
         double obs_t = std::max(0.0, t - cfg_.image_delay_ms * 0.001);
-        Aim truth = real_generator_.make_standard_truth(obs_t, true);
-        std::vector<Observation> obs_list;
+        ArmorAim truth = real_generator_.make_standard_truth(obs_t, true);
+        std::vector<ArmorObservation> obs_list;
         if (!occluded) {
-            Observation obs;
+            ArmorObservation obs;
             obs.t = t;
             obs.id = truth.id;
             obs.type = truth.type;
@@ -483,8 +486,8 @@ Report AutoaimGenerator::run_singer_tracker() const
         double pred_gimbal_yaw = gimbal_yaw_at(std::max(0.0, t - cfg_.imu_delay_ms * 0.001), angles::from_degrees(cfg_.imu_yaw_bias_deg));
         double truth_gimbal_yaw = gimbal_yaw_at(t, 0.0);
 
-        std::vector<Aim> aims = tracker.get_aims(t);
-        Aim current_hit = aims.empty() ? Aim {} : aims.front();
+        std::vector<ArmorAim> aims = tracker.get_aims(t);
+        ArmorAim current_hit = aims.empty() ? ArmorAim {} : aims.front();
         CommandResult predicted;
         predicted.hit = current_hit;
         if (predicted.hit.id >= 0) {
@@ -495,7 +498,7 @@ Report AutoaimGenerator::run_singer_tracker() const
             predicted.pitch_deg = angles::to_degrees(traj.solvable() ? traj.get_pitch() : command_pitch(predicted.hit.aim_pos));
         }
 
-        Aim truth_now = real_generator_.make_standard_truth(t, true);
+        ArmorAim truth_now = real_generator_.make_standard_truth(t, true);
         CommandResult truth_cmd;
         truth_cmd.hit = truth_now;
         Trajectory truth_traj(truth_now.aim_pos, bullet_speed, truth_gimbal_yaw);
@@ -505,8 +508,8 @@ Report AutoaimGenerator::run_singer_tracker() const
         truth_cmd.pitch_deg = angles::to_degrees(truth_traj.solvable() ? truth_traj.get_pitch() : command_pitch(truth_now.aim_pos));
 
         update_current_metrics(report, predicted, truth_cmd, t, has_prev, prev_t, prev_yaw, prev_pitch);
-        Aim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : Aim {};
-        Aim truth_future = real_generator_.make_standard_truth(t + 0.08, true);
+        ArmorAim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : ArmorAim {};
+        ArmorAim truth_future = real_generator_.make_standard_truth(t + 0.08, true);
         update_future_metrics(report, predicted_future, truth_future, t, has_future_prev, prev_future_t, prev_future_yaw, prev_future_pitch);
         CommandResult raw_cmd = obs_list.empty() ? CommandResult {} : raw_observation_command(obs_list.front(), bullet_speed, pred_gimbal_yaw);
 
@@ -582,7 +585,7 @@ Report AutoaimGenerator::run_top_tracker() const
         bool occluded = is_occluded_frame(rng, cfg_, occlusion_left);
         double obs_t = std::max(0.0, t - cfg_.image_delay_ms * 0.001);
         double truth_vyaw_obs = 0.0;
-        std::vector<Aim> truth_aims_obs = real_generator_.make_top_truth(obs_t, truth_vyaw_obs);
+        std::vector<ArmorAim> truth_aims_obs = real_generator_.make_top_truth(obs_t, truth_vyaw_obs);
         GimbalSample obs_gimbal = sample_gimbal(gimbal_history, obs_t);
         GimbalSample truth_gimbal = sample_gimbal(gimbal_history, t);
         GimbalSample imu_gimbal = sample_gimbal(gimbal_history, std::max(0.0, t - cfg_.imu_delay_ms * 0.001));
@@ -596,15 +599,15 @@ Report AutoaimGenerator::run_top_tracker() const
             imu_gimbal.pitch + angles::from_degrees(cfg_.imu_pitch_bias_deg));
         tracker.set_pose(measured_pose.R_c_w, measured_pose.t_c_w);
 
-        std::vector<Observation> raw_obs;
+        std::vector<ArmorObservation> raw_obs;
         if (!occluded) {
             raw_obs = real_generator_.make_rotating_observations(truth_aims_obs, t, cam, true_pose, rng, 2, -0.26);
         }
 
-        std::vector<Observation> processed_obs = raw_obs;
+        std::vector<ArmorObservation> processed_obs = raw_obs;
         if (tracker.get_credit(t) && !raw_obs.empty()) {
             processed_obs = tracker.fit(raw_obs, t);
-            std::vector<Observation> assoc_obs = processed_obs;
+            std::vector<ArmorObservation> assoc_obs = processed_obs;
             for (auto& obs: assoc_obs) {
                 obs.orient_yaw = obs.fitted_yaw;
             }
@@ -629,7 +632,7 @@ Report AutoaimGenerator::run_top_tracker() const
         };
         auto truth_select_at = [&](double query_t) {
             double future_vyaw = 0.0;
-            std::vector<Aim> future_truth = real_generator_.make_top_truth(query_t, future_vyaw);
+            std::vector<ArmorAim> future_truth = real_generator_.make_top_truth(query_t, future_vyaw);
             int future_top_level = update_top_level(truth_top_level, future_vyaw);
             return select_standard_aim(future_truth, future_vyaw, future_top_level, t, 1, truth_select_pose.t_c_w, truth_state);
         };
@@ -643,11 +646,11 @@ Report AutoaimGenerator::run_top_tracker() const
         latch_gimbal_command(predicted, gimbal_cmd_yaw, gimbal_cmd_pitch);
         update_current_metrics(report, predicted, truth_metric, t, has_prev, prev_t, prev_yaw, prev_pitch);
 
-        Aim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : Aim {};
+        ArmorAim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : ArmorAim {};
         double unused_vyaw = 0.0;
-        Aim truth_future = predicted.hit.id >= 0 ? real_generator_.make_top_truth(t + 0.08, unused_vyaw)[static_cast<size_t>(predicted.hit.id)] : Aim {};
+        ArmorAim truth_future = predicted.hit.id >= 0 ? real_generator_.make_top_truth(t + 0.08, unused_vyaw)[static_cast<size_t>(predicted.hit.id)] : ArmorAim {};
         update_future_metrics(report, predicted_future, truth_future, t, has_future_prev, prev_future_t, prev_future_yaw, prev_future_pitch);
-        const Observation* raw_selected_obs = find_selected_observation(raw_obs, processed_obs, predicted.hit.id);
+        const ArmorObservation* raw_selected_obs = find_selected_observation(raw_obs, processed_obs, predicted.hit.id);
         CommandResult raw_cmd = raw_selected_obs == nullptr ? CommandResult {} : raw_observation_command(*raw_selected_obs, bullet_speed, pred_gimbal_yaw);
 
         CommandRow row;
@@ -723,7 +726,7 @@ Report AutoaimGenerator::run_top3_tracker() const
         bool occluded = is_occluded_frame(rng, cfg_, occlusion_left);
         double obs_t = std::max(0.0, t - cfg_.image_delay_ms * 0.001);
         double truth_vyaw_obs = 0.0;
-        std::vector<Aim> truth_aims_obs = real_generator_.make_top3_truth(obs_t, truth_vyaw_obs);
+        std::vector<ArmorAim> truth_aims_obs = real_generator_.make_top3_truth(obs_t, truth_vyaw_obs);
         GimbalSample obs_gimbal = sample_gimbal(gimbal_history, obs_t);
         GimbalSample truth_gimbal = sample_gimbal(gimbal_history, t);
         GimbalSample imu_gimbal = sample_gimbal(gimbal_history, std::max(0.0, t - cfg_.imu_delay_ms * 0.001));
@@ -737,15 +740,15 @@ Report AutoaimGenerator::run_top3_tracker() const
             imu_gimbal.pitch + angles::from_degrees(cfg_.imu_pitch_bias_deg));
         tracker.set_pose(measured_pose.R_c_w, measured_pose.t_c_w);
 
-        std::vector<Observation> raw_obs;
+        std::vector<ArmorObservation> raw_obs;
         if (!occluded) {
             raw_obs = real_generator_.make_rotating_observations(truth_aims_obs, t, cam, true_pose, rng, 3, -0.2617993877991494);
         }
 
-        std::vector<Observation> processed_obs = raw_obs;
+        std::vector<ArmorObservation> processed_obs = raw_obs;
         if (tracker.get_credit(t) && !raw_obs.empty()) {
             processed_obs = tracker.fit(raw_obs, t);
-            std::vector<Observation> assoc_obs = processed_obs;
+            std::vector<ArmorObservation> assoc_obs = processed_obs;
             for (auto& obs: assoc_obs) {
                 obs.orient_yaw = obs.fitted_yaw;
             }
@@ -779,11 +782,11 @@ Report AutoaimGenerator::run_top3_tracker() const
         latch_gimbal_command(predicted, gimbal_cmd_yaw, gimbal_cmd_pitch);
         update_current_metrics(report, predicted, truth_metric, t, has_prev, prev_t, prev_yaw, prev_pitch);
 
-        Aim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : Aim {};
+        ArmorAim predicted_future = predicted.hit.id >= 0 ? tracker.find_aim(0.08, predicted.hit.id) : ArmorAim {};
         double unused_vyaw = 0.0;
-        Aim truth_future = predicted.hit.id >= 0 ? real_generator_.make_top3_truth(t + 0.08, unused_vyaw)[static_cast<size_t>(predicted.hit.id)] : Aim {};
+        ArmorAim truth_future = predicted.hit.id >= 0 ? real_generator_.make_top3_truth(t + 0.08, unused_vyaw)[static_cast<size_t>(predicted.hit.id)] : ArmorAim {};
         update_future_metrics(report, predicted_future, truth_future, t, has_future_prev, prev_future_t, prev_future_yaw, prev_future_pitch);
-        const Observation* raw_selected_obs = find_selected_observation(raw_obs, processed_obs, predicted.hit.id);
+        const ArmorObservation* raw_selected_obs = find_selected_observation(raw_obs, processed_obs, predicted.hit.id);
         CommandResult raw_cmd = raw_selected_obs == nullptr ? CommandResult {} : raw_observation_command(*raw_selected_obs, bullet_speed, pred_gimbal_yaw);
 
         CommandRow row;

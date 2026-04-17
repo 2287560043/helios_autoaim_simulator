@@ -16,10 +16,10 @@ public:
     Report run_top3_tracker() const;
 
 private:
-    static Aim select_standard_aim(const std::vector<Aim>& aims, double vyaw, int top_level, double t, int armor_type, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id = -1);
-    static Aim select_outpost_aim(const std::vector<Aim>& aims, double vyaw, double t, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id = -1);
-    static void update_standard_lock(const Aim& aim, int top_level, double t, SelectorState& state);
-    static void update_outpost_lock(const Aim& aim, double t, SelectorState& state);
+    static ArmorAim select_standard_aim(const std::vector<ArmorAim>& aims, double vyaw, int top_level, double t, int armor_type, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id = -1);
+    static ArmorAim select_outpost_aim(const std::vector<ArmorAim>& aims, double vyaw, double t, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id = -1);
+    static void update_standard_lock(const ArmorAim& aim, int top_level, double t, SelectorState& state);
+    static void update_outpost_lock(const ArmorAim& aim, double t, SelectorState& state);
     static int update_top_level(int level, double vyaw);
 
     SimConfig cfg_;

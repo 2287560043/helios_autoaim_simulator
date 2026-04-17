@@ -41,9 +41,9 @@ touch "$STAMP"
 
 clang++ -std=c++17 -O2 \
   "$SRC" \
-  "$SCRIPT_DIR/node_params.cpp" \
-  "$SCRIPT_DIR/real_generator.cpp" \
-  "$SCRIPT_DIR/autoaim_generator.cpp" \
+  "$SCRIPT_DIR/src/node_params.cpp" \
+  "$SCRIPT_DIR/src/real_generator.cpp" \
+  "$SCRIPT_DIR/src/autoaim_generator.cpp" \
   "$PKG_DIR/autoaim_utilities/src/YawOptimizer.cpp" \
   "$PKG_DIR/autoaim_utilities/src/BulletTrajectory.cpp" \
   "$PKG_DIR/autoaim_armor_predictor/src/tracker/SimpleTracker.cpp" \
