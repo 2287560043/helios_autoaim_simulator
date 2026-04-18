@@ -2,19 +2,19 @@
 
 当前入口：
 
-- `./run_simulator.sh`
-- `./simulator.cpp`
+- `./autoaim_simulator/run_simulator.sh`
+- `./autoaim_simulator/simulator.cpp`
 
 ## 1. 怎么运行
 
 ```bash
-./run_simulator.sh --tracker all --preset medium_disturb
+./autoaim_simulator/run_simulator.sh --tracker all --preset medium_disturb
 ```
 
 只看参数说明：
 
 ```bash
-./run_simulator.sh --help
+./autoaim_simulator/run_simulator.sh --help
 ```
 
 
@@ -52,61 +52,61 @@
 
 ```bash
 # SimpleTracker，左右匀速平移 1.0m/s + 轻度扰动
-./run_simulator.sh --tracker simple --standard-mode translate_const --preset light_disturb
+./autoaim_simulator/run_simulator.sh --tracker simple --standard-mode translate_const --preset light_disturb
 
 # SingerTracker，左右匀速平移 1.0m/s + 轻度扰动
-./run_simulator.sh --tracker singer --standard-mode translate_const --preset light_disturb
+./autoaim_simulator/run_simulator.sh --tracker singer --standard-mode translate_const --preset light_disturb
 
 # SimpleTracker，左右变速平移 -2.0~2.0~-2.0m/s + 中度扰动
-./run_simulator.sh --tracker simple --standard-mode translate_var --preset medium_disturb
+./autoaim_simulator/run_simulator.sh --tracker simple --standard-mode translate_var --preset medium_disturb
 
 # SingerTracker，左右变速平移 -2.0~2.0~-2.0m/s + 中度扰动
-./run_simulator.sh --tracker singer --standard-mode translate_var --preset medium_disturb
+./autoaim_simulator/run_simulator.sh --tracker singer --standard-mode translate_var --preset medium_disturb
 ```
 
 ### top 陀螺目标
 
 ```bash
 # TopTracker，匀速陀螺 60rpm + 轻度扰动
-./run_simulator.sh --tracker top --top-mode spin_const --preset light_disturb
+./autoaim_simulator/run_simulator.sh --tracker top --top-mode spin_const --preset light_disturb
 
 # TopTracker，变速陀螺 20~120~60rpm + 中度扰动
-./run_simulator.sh --tracker top --top-mode spin_var --preset medium_disturb
+./autoaim_simulator/run_simulator.sh --tracker top --top-mode spin_var --preset medium_disturb
 
 # TopTracker，匀速陀螺 60rpm + 左右匀速平移 0.8m/s + 轻度扰动
-./run_simulator.sh --tracker top --top-mode spin_const_translate_const --preset light_disturb
+./autoaim_simulator/run_simulator.sh --tracker top --top-mode spin_const_translate_const --preset light_disturb
 
 # TopTracker，变速陀螺 30~120~60rpm + 左右变速平移 -1.5~1.5~-1.5m/s + 中度扰动
-./run_simulator.sh --tracker top --top-mode spin_var_translate_var --preset medium_disturb
+./autoaim_simulator/run_simulator.sh --tracker top --top-mode spin_var_translate_var --preset medium_disturb
 
 # TopTracker，匀速陀螺 60rpm + 原地高度变化 0~50cm~0（周期5s）+ 轻度扰动
-./run_simulator.sh --tracker top --top-mode spin_const_height_var --preset light_disturb
+./autoaim_simulator/run_simulator.sh --tracker top --top-mode spin_const_height_var --preset light_disturb
 
 # TopTracker，变速陀螺 20~120~60rpm + 原地高度变化 0~40cm~0（周期5s）+ 中度扰动
-./run_simulator.sh --tracker top --top-mode spin_var_height_var --preset medium_disturb
+./autoaim_simulator/run_simulator.sh --tracker top --top-mode spin_var_height_var --preset medium_disturb
 ```
 
 ### top3 前哨站目标
 
 ```bash
 # Top3Tracker，固定前哨站 + 中度扰动
-./run_simulator.sh --tracker top3 --preset medium_disturb
+./autoaim_simulator/run_simulator.sh --tracker top3 --preset medium_disturb
 ```
 
 ### 自定义参数
 
 ```bash
 # 指定距离和弹速
-./run_simulator.sh --tracker top3 --preset medium_disturb --distance-m 7 --bullet-speed 13.5
+./autoaim_simulator/run_simulator.sh --tracker top3 --preset medium_disturb --distance-m 7 --bullet-speed 13.5
 
 # 四个 tracker 一起跑综合压力
-./run_simulator.sh --tracker all --standard-mode translate_var --top-mode spin_var_translate_var --preset heavy_disturb
+./autoaim_simulator/run_simulator.sh --tracker all --standard-mode translate_var --top-mode spin_var_translate_var --preset heavy_disturb
 ```
 
 你也可以在扰动 preset 基础上继续覆写单个参数，比如：
 
 ```bash
-./run_simulator.sh \
+./autoaim_simulator/run_simulator.sh \
   --tracker simple \
   --preset heavy_disturb \
   --fps 120 \
@@ -175,7 +175,7 @@
 每个场景会输出两类文件：
 
 - `*.csv`
-- `*.png`
+- `*_target_yaw.svg`
 
 csv示例：
 
@@ -183,7 +183,7 @@ csv示例：
 
 图片示例：
 
-![sample_image](./sample/sample_image.png)
+![sample_image](./sample/sample_image.svg)
 
 ## 6. 项目文件复用
 
@@ -232,6 +232,10 @@ csv示例：
 ## 8. 说明
 
 - 本工具不依赖 ROS
-- 依赖 `clang++`、`Eigen`、`OpenCV core`、 `python3 + matplotlib`
+- 默认依赖 `clang++`、`Eigen`、`OpenCV core`
+- 默认图像由 `simulator` 直接快速生成 `SVG`
+- `run_simulator.sh` 只有在相关源码或头文件变更后才会重新编译
+- 只想快速看终端结果可加 `--no-plot`
+- 想强制重编译可加 `--rebuild`
 - `node_params.yaml`、`TopTracker`、`BulletTrajectory`中的更改会直接反映到仿真中
 - `Observer`中的更改无法直接反映到仿真中，需要在 `simulator.cpp` 里同步改动

@@ -253,8 +253,7 @@ std::vector<ArmorAim> RealGenerator::make_top3_truth(double t, double& vyaw) con
 }
 
 ArmorObservation RealGenerator::make_observation(
-    const ArmorAim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng,
-    double armor_pitch) const
+    const ArmorAim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng, double armor_pitch) const
 {
     ArmorObservation obs;
     obs.t = t;

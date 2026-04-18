@@ -34,6 +34,7 @@ void print_help()
         << "  --latency-ms <value>\n"
         << "  --params-file <path>\n"
         << "  --output-dir <path>\n"
+        << "  --no-plot\n"
         << "Target Presets:\n"
         << "  translate_const: 左右匀速平移 1.0m/s\n"
         << "  translate_var: 左右变速平移 -2.0 -> 2.0 -> -2.0m/s\n"
@@ -120,6 +121,7 @@ SimConfig parse_args(int argc, char** argv)
         else if (arg == "--bullet-speed") cfg.bullet_speed = std::stod(next(arg));
         else if (arg == "--latency-ms") cfg.latency_ms = std::stod(next(arg));
         else if (arg == "--params-file") cfg.params_file = next(arg);
+        else if (arg == "--no-plot") cfg.no_plot = true;
         else {
             throw std::runtime_error("unknown argument: " + arg);
         }

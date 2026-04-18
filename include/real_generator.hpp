@@ -19,8 +19,7 @@ public:
     std::vector<ArmorAim> make_top_truth(double t, double& vyaw) const;
     std::vector<ArmorAim> make_top3_truth(double t, double& vyaw) const;
     ArmorObservation make_observation(
-        const ArmorAim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng,
-        double armor_pitch) const;
+        const ArmorAim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng, double armor_pitch) const;
     std::vector<ArmorObservation> make_rotating_observations(
         const std::vector<ArmorAim>& truth_aims, double t, const CameraParam& cam, const PoseSample& pose,
         std::mt19937& rng, int max_count, double armor_pitch) const;

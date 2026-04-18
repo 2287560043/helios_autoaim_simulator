@@ -21,8 +21,7 @@ TrackerParamSet resolve_tracker_params(const SimConfig& cfg)
 AutoaimGenerator::AutoaimGenerator(const SimConfig& cfg): cfg_(cfg), real_generator_(cfg), tracker_params_(resolve_tracker_params(cfg)) {}
 
 ArmorAim AutoaimGenerator::select_standard_aim(
-    const std::vector<ArmorAim>& aims, double vyaw, int top_level, double t, int armor_type,
-    const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id)
+    const std::vector<ArmorAim>& aims, double vyaw, int top_level, double t, int armor_type, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id)
 {
     ArmorAim result;
     if (aims.empty()) {
@@ -215,9 +214,7 @@ ArmorAim AutoaimGenerator::select_standard_aim(
     return best_armor;
 }
 
-ArmorAim AutoaimGenerator::select_outpost_aim(
-    const std::vector<ArmorAim>& aims, double vyaw, double t, const Eigen::Vector3d& camera_pos,
-    SelectorState& state, int forced_id)
+ArmorAim AutoaimGenerator::select_outpost_aim(const std::vector<ArmorAim>& aims, double vyaw, double t, const Eigen::Vector3d& camera_pos, SelectorState& state, int forced_id)
 {
     ArmorAim result;
     if (aims.empty()) {
@@ -435,6 +432,10 @@ Report AutoaimGenerator::run_simple_tracker() const
 
     report.csv_path = build_csv_path(cfg_, "simple", cfg_.standard_mode, distance, bullet_speed);
     write_csv(report.csv_path, rows);
+    if (!cfg_.no_plot) {
+        report.plot_path = build_plot_path(report.csv_path);
+        write_svg_plot(report.plot_path, rows);
+    }
     return report;
 }
 
@@ -537,6 +538,10 @@ Report AutoaimGenerator::run_singer_tracker() const
 
     report.csv_path = build_csv_path(cfg_, "singer", cfg_.standard_mode, distance, bullet_speed);
     write_csv(report.csv_path, rows);
+    if (!cfg_.no_plot) {
+        report.plot_path = build_plot_path(report.csv_path);
+        write_svg_plot(report.plot_path, rows);
+    }
     return report;
 }
 
@@ -680,6 +685,10 @@ Report AutoaimGenerator::run_top_tracker() const
 
     report.csv_path = build_csv_path(cfg_, "top", cfg_.top_mode, distance, bullet_speed);
     write_csv(report.csv_path, rows);
+    if (!cfg_.no_plot) {
+        report.plot_path = build_plot_path(report.csv_path);
+        write_svg_plot(report.plot_path, rows);
+    }
     return report;
 }
 
@@ -815,6 +824,10 @@ Report AutoaimGenerator::run_top3_tracker() const
 
     report.csv_path = build_csv_path(cfg_, "top3", cfg_.outpost_mode, distance, bullet_speed);
     write_csv(report.csv_path, rows);
+    if (!cfg_.no_plot) {
+        report.plot_path = build_plot_path(report.csv_path);
+        write_svg_plot(report.plot_path, rows);
+    }
     return report;
 }
 
