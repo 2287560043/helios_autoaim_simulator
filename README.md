@@ -11,7 +11,7 @@
 ./autoaim_simulator/run_simulator.sh --tracker all --preset medium_disturb
 ```
 
-只看参数说明：
+参数说明：
 
 ```bash
 ./autoaim_simulator/run_simulator.sh --help
@@ -169,13 +169,13 @@
 默认输出目录：
 
 ```bash
-./output
+./autoaim_simulator/output
 ```
 
 每个场景会输出两类文件：
 
 - `*.csv`
-- `*_target_yaw.svg`
+- `*.svg`
 
 csv示例：
 
@@ -234,8 +234,6 @@ csv示例：
 - 本工具不依赖 ROS
 - 默认依赖 `clang++`、`Eigen`、`OpenCV core`
 - 默认图像由 `simulator` 直接快速生成 `SVG`
-- `run_simulator.sh` 只有在相关源码或头文件变更后才会重新编译
-- 只想快速看终端结果可加 `--no-plot`
-- 想强制重编译可加 `--rebuild`
+- 强制重编译可加 `--rebuild`
 - `node_params.yaml`、`TopTracker`、`BulletTrajectory`中的更改会直接反映到仿真中
 - `Observer`中的更改无法直接反映到仿真中，需要在 `simulator.cpp` 里同步改动
