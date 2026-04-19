@@ -229,7 +229,7 @@ std::vector<ArmorAim> RealGenerator::make_top3_truth(double t, double& vyaw) con
 
     double cx = distance;
     double cy = -0.25;
-    double cz = 1.0;
+    double cz = 0.76;
     double dz = 0.102;
 
     std::vector<ArmorAim> aims;

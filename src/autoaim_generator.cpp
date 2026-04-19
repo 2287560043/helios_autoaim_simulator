@@ -1110,8 +1110,16 @@ Report AutoaimGenerator::run_top3_tracker() const
 
         CommandResult predicted = solve_command(t, bullet_speed, cfg_.latency_ms * 0.001, pred_gimbal_yaw, pred_select_at);
         CommandResult truth_cmd = solve_command(t, bullet_speed, cfg_.latency_ms * 0.001, truth_gimbal_yaw, truth_select_at);
-        CommandResult truth_metric = truth_cmd;
-        truth_metric.pitch_deg = truth_pitch_deg(truth_cmd.hit, bullet_speed, truth_gimbal_yaw);
+        CommandResult truth_metric;
+        if (predicted.hit.id >= 0) {
+            auto truth_same_id_at = [&](double query_t) {
+                double future_vyaw = 0.0;
+                std::vector<ArmorAim> future_truth = real_generator_.make_top3_truth(query_t, future_vyaw);
+                return static_cast<size_t>(predicted.hit.id) < future_truth.size() ? future_truth[static_cast<size_t>(predicted.hit.id)] : ArmorAim {};
+            };
+            truth_metric = solve_command(t, bullet_speed, cfg_.latency_ms * 0.001, truth_gimbal_yaw, truth_same_id_at);
+            truth_metric.pitch_deg = truth_pitch_deg(truth_metric.hit, bullet_speed, truth_gimbal_yaw);
+        }
         update_outpost_lock(predicted.hit, t, pred_state);
         update_outpost_lock(truth_cmd.hit, t, truth_state);
         latch_gimbal_command(predicted, gimbal_cmd_yaw, gimbal_cmd_pitch);
@@ -1134,7 +1142,7 @@ Report AutoaimGenerator::run_top3_tracker() const
         row.selected_id = predicted.hit.id;
         row.raw_target_yaw_deg = raw_cmd.yaw_deg;
         row.target_yaw_deg = predicted.yaw_deg;
-        row.truth_target_yaw_deg = truth_cmd.yaw_deg;
+        row.truth_target_yaw_deg = truth_metric.yaw_deg;
         row.raw_target_pitch_deg = raw_cmd.pitch_deg;
         row.target_pitch_deg = predicted.pitch_deg;
         row.truth_target_pitch_deg = truth_metric.pitch_deg;

@@ -341,7 +341,7 @@ inline double truth_pitch_deg(const ArmorAim& hit, double bullet_speed, double g
 {
     if (hit.id < 0 || !finite_vec(hit.aim_pos)) return nan_v();
     Trajectory traj(hit.aim_pos, bullet_speed, gimbal_yaw);
-    return angles::to_degrees(traj.solvable() ? traj.get_pitch() : -command_pitch(hit.aim_pos));
+    return angles::to_degrees(traj.solvable() ? traj.get_pitch() : command_pitch(hit.aim_pos));
 }
 
 inline CommandResult raw_observation_command(const ArmorObservation& obs, double bullet_speed, double gimbal_yaw)
@@ -353,7 +353,7 @@ inline CommandResult raw_observation_command(const ArmorObservation& obs, double
     result.fly_time = traj.solvable() ? traj.get_flyTime() : 0.0;
     result.solvable = traj.solvable();
     result.yaw_deg = angles::to_degrees(traj.solvable() ? traj.get_yaw() : command_yaw(obs.pos));
-    result.pitch_deg = angles::to_degrees(traj.solvable() ? traj.get_pitch() : -command_pitch(obs.pos));
+    result.pitch_deg = angles::to_degrees(traj.solvable() ? traj.get_pitch() : command_pitch(obs.pos));
     return result;
 }
 
@@ -460,7 +460,7 @@ CommandResult solve_command(double t, double bullet_speed, double latency_s, dou
     result.fly_time = final_fly_time;
     result.solvable = traj.solvable();
     result.yaw_deg = angles::to_degrees(result.solvable ? traj.get_yaw() : command_yaw(final_hit.aim_pos));
-    result.pitch_deg = angles::to_degrees(result.solvable ? traj.get_pitch() : -command_pitch(final_hit.aim_pos));
+    result.pitch_deg = angles::to_degrees(result.solvable ? traj.get_pitch() : command_pitch(final_hit.aim_pos));
     return result;
 }
 
