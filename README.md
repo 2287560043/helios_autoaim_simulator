@@ -44,7 +44,7 @@
 | `heavy_disturb` | 更重噪声、更多丢包遮挡卡顿、更大溜车 |
 | `extreme_disturb` | 极端综合干扰 |
 
-默认仿真时长是 `20s`
+默认仿真时长对 armor 目标是 `20s`。`small` 和 `big` 在不传 `--duration` 时，默认跑完整个五符叶激活流程。
 
 ## 3. 常用启动命令
 
@@ -93,13 +93,24 @@
 ./autoaim_simulator/run_simulator.sh --tracker top3 --preset medium_disturb
 ```
 
+<!-- ### small / big 能量机关
+
+```bash
+# 小能量机关，固定转速
+./autoaim_simulator/run_simulator.sh --tracker small --preset clean
+
+# 大能量机关，正弦转速
+# 默认时间轴是完成五组激活的整轮流程；
+./autoaim_simulator/run_simulator.sh --tracker big --preset clean
+``` -->
+
 ### 自定义参数
 
 ```bash
 # 指定距离和弹速
 ./autoaim_simulator/run_simulator.sh --tracker top3 --preset medium_disturb --distance-m 7 --bullet-speed 13.5
 
-# 四个 tracker 一起跑综合压力
+# 六个 tracker 一起跑综合压力
 ./autoaim_simulator/run_simulator.sh --tracker all --standard-mode translate_var --top-mode spin_var_translate_var --preset heavy_disturb
 ```
 
@@ -118,7 +129,7 @@
 
 ### Tracker 选择
 
-- `--tracker all|simple|singer|top|top3`
+- `--tracker all|simple|singer|top|top3|small|big`
 
 ### 模式选择
 
@@ -163,6 +174,7 @@
 - `simple / singer`：默认 `1.5m`，默认 `22.8m/s`
 - `top`：默认 `3.0m`，默认 `22.8m/s`
 - `top3 / outpost`：默认 `5.0m`，默认 `11.8m/s`
+<!-- - `small / big`：默认 `2.0m`，默认 `22.8m/s` -->
 
 ## 5. 输出内容
 
@@ -176,6 +188,21 @@
 
 - `*.csv`
 - `*.svg`
+
+armor 图默认是 4 个面板：
+
+- `Yaw Tracking`
+- `Pitch Tracking`
+- `Tracking Errors`
+- `Frame Dt + Events`
+
+<!-- energy 图默认是 5 个面板：
+
+- `Yaw Tracking`
+- `Pitch Tracking`
+- `Tracking Errors`
+- `Score`
+- `System Behavior` -->
 
 csv示例：
 
@@ -193,6 +220,8 @@ csv示例：
 - `../autoaim_armor_predictor/src/tracker/SingerTracker.cpp`
 - `../autoaim_armor_predictor/src/tracker/TopTracker.cpp`
 - `../autoaim_armor_predictor/src/tracker/Top3Tracker.cpp`
+<!-- - `../autoaim_energy_predictor/src/tracker/SmallTracker.cpp`
+- `../autoaim_energy_predictor/src/tracker/BigTracker.cpp` -->
 
 ### 弹道
 
@@ -222,6 +251,9 @@ csv示例：
 - 匀速陀螺 + 原地高度变化 0 ~ 50 cm ~ 0
 - 变速陀螺 + 原地高度变化 0 ~ 40 cm ~ 0
 - 固定前哨 3 板
+<!-- - 小能量机关固定转速 + 单亮靶激活流程
+- 大能量机关正弦转速 + 双亮靶激活流程
+- 能量机关 1 ~ 10 环环数统计 -->
 - IMU / 图像轻微不匹配
 - 上游位置、yaw、角点噪声
 - 随机遮挡导致的短时丢失

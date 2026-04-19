@@ -186,6 +186,22 @@ TrackerParamSet load_tracker_params(const std::string& path)
         require_double(values, "/armor_predictor/ros__parameters/outpost_observer/ekf/r_xyz_factory"),
         require_double(values, "/armor_predictor/ros__parameters/outpost_observer/ekf/r_yaw_factory"),
     };
+    params.energy = {
+        require_double(values, "/energy_predictor/ros__parameters/energy/energy_radius"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/keep_time"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/alpha"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/beta"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/kappa"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/a_min"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/a_max"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/w_min"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/w_max"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/q_roll_c"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/q_a_c"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/q_w_c"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/q_theta_c"),
+        require_double(values, "/energy_predictor/ros__parameters/energy/r_roll"),
+    };
     return params;
 }
 

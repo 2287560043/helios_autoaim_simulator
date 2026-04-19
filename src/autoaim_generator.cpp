@@ -1,5 +1,8 @@
 #include "../include/autoaim_generator.hpp"
 
+#include "energy_predictor/tracker/BigTracker.hpp"
+#include "energy_predictor/tracker/SmallTracker.hpp"
+
 #include <stdexcept>
 
 namespace helios_cv
@@ -7,13 +10,334 @@ namespace helios_cv
 namespace
 {
 
+enum class EnergyState { Activating, Activated };
+
+struct EnergySelectState {
+    int active_fan_id = -1;
+};
+
+struct EnergyRuntimeState {
+    bool big = false;
+    EnergyState state = EnergyState::Activating;
+    double motion_anchor_t = 0.0;
+    double roll_anchor = 0.0;
+    double a = 0.78;
+    double w = 1.884;
+    double time_shift = 0.0;
+    std::array<int, 5> fan_types {2, 2, 2, 2, 2};
+    int progress_group = 0;
+    double phase_start_t = 0.0;
+    double first_hit_t = nan_v();
+    int first_hit_id = -1;
+    bool second_hit_done = false;
+    std::string reset_reason = "none";
+};
+
+double random_between(std::mt19937& rng, double low, double high)
+{
+    return std::uniform_real_distribution<double>(low, high)(rng);
+}
+
+std::string energy_state_name(EnergyState state)
+{
+    return state == EnergyState::Activated ? "activated" : "activating";
+}
+
+double big_roll_delta(double dt, double a, double w, double time_shift)
+{
+    return (a / w) * (std::cos(w * time_shift) - std::cos(w * (dt + time_shift))) + (2.090 - a) * dt;
+}
+
+double energy_base_roll(const EnergyRuntimeState& state, double t)
+{
+    double dt = std::max(0.0, t - state.motion_anchor_t);
+    if (!state.big || state.state == EnergyState::Activated) {
+        return state.roll_anchor + pi() * dt / 3.0;
+    }
+    return state.roll_anchor + big_roll_delta(dt, state.a, state.w, state.time_shift);
+}
+
+double energy_roll_speed(const EnergyRuntimeState& state, double t)
+{
+    if (!state.big || state.state == EnergyState::Activated) {
+        return pi() / 3.0;
+    }
+    return state.a * std::sin(state.w * (std::max(0.0, t - state.motion_anchor_t) + state.time_shift)) + 2.090 - state.a;
+}
+
+int choose_random_fan(std::mt19937& rng, const std::array<int, 5>& fan_types, int wanted_type)
+{
+    std::vector<int> ids;
+    for (int i = 0; i < 5; i++) {
+        if (fan_types[static_cast<size_t>(i)] == wanted_type) {
+            ids.push_back(i);
+        }
+    }
+    if (ids.empty()) {
+        return -1;
+    }
+    return ids[static_cast<size_t>(randint(rng, 0, static_cast<int>(ids.size()) - 1))];
+}
+
+std::array<int, 5> choose_random_pair(std::mt19937& rng)
+{
+    std::array<int, 5> fan_types {2, 2, 2, 2, 2};
+    int first = randint(rng, 0, 4);
+    int second = randint(rng, 0, 3);
+    if (second >= first) {
+        second += 1;
+    }
+    fan_types[static_cast<size_t>(first)] = 0;
+    fan_types[static_cast<size_t>(second)] = 0;
+    return fan_types;
+}
+
+void set_small_target(EnergyRuntimeState& state, int lit_id)
+{
+    state.fan_types.fill(2);
+    if (lit_id >= 0 && lit_id < 5) {
+        state.fan_types[static_cast<size_t>(lit_id)] = 0;
+    }
+}
+
+void restart_big_motion(EnergyRuntimeState& state, double t, double current_roll, std::mt19937& rng)
+{
+    state.state = EnergyState::Activating;
+    state.motion_anchor_t = t;
+    state.roll_anchor = current_roll;
+    state.a = random_between(rng, 0.780, 1.045);
+    state.w = random_between(rng, 1.884, 2.000);
+    state.time_shift = random_between(rng, -0.5, 0.5);
+    state.fan_types = choose_random_pair(rng);
+    state.progress_group = 0;
+    state.phase_start_t = t;
+    state.first_hit_t = nan_v();
+    state.first_hit_id = -1;
+    state.second_hit_done = false;
+}
+
+EnergyRuntimeState make_energy_runtime(bool big, std::mt19937& rng)
+{
+    EnergyRuntimeState state;
+    state.big = big;
+    state.state = EnergyState::Activating;
+    state.motion_anchor_t = 0.0;
+    state.roll_anchor = 0.0;
+    state.phase_start_t = 0.0;
+    if (big) {
+        restart_big_motion(state, 0.0, 0.0, rng);
+    } else {
+        int lit_id = randint(rng, 0, 4);
+        set_small_target(state, lit_id);
+    }
+    return state;
+}
+
+void reset_small_runtime(EnergyRuntimeState& state, double t, std::mt19937& rng, const std::string& reason)
+{
+    state.state = EnergyState::Activating;
+    state.progress_group = 0;
+    state.phase_start_t = t;
+    state.first_hit_t = nan_v();
+    state.first_hit_id = -1;
+    state.second_hit_done = false;
+    state.reset_reason = reason;
+    set_small_target(state, randint(rng, 0, 4));
+}
+
+void reset_big_runtime(EnergyRuntimeState& state, double t, std::mt19937& rng, const std::string& reason)
+{
+    double current_roll = energy_base_roll(state, t);
+    restart_big_motion(state, t, current_roll, rng);
+    state.reset_reason = reason;
+}
+
+void advance_energy_state(EnergyRuntimeState& state, double t, std::mt19937& rng)
+{
+    if (state.state == EnergyState::Activated) {
+        return;
+    }
+    if (!state.big) {
+        if (t - state.phase_start_t >= 2.5) {
+            reset_small_runtime(state, t, rng, "timeout");
+        }
+        return;
+    }
+    if (!std::isfinite(state.first_hit_t)) {
+        if (t - state.phase_start_t >= 2.5) {
+            reset_big_runtime(state, t, rng, "timeout");
+        }
+        return;
+    }
+    if (t - state.first_hit_t < 1.0) {
+        return;
+    }
+    if (state.progress_group >= 5) {
+        double current_roll = energy_base_roll(state, t);
+        state.state = EnergyState::Activated;
+        state.motion_anchor_t = t;
+        state.roll_anchor = current_roll;
+        state.fan_types.fill(1);
+        state.first_hit_t = nan_v();
+        state.first_hit_id = -1;
+        state.second_hit_done = false;
+        return;
+    }
+    state.fan_types = choose_random_pair(rng);
+    state.phase_start_t = t;
+    state.first_hit_t = nan_v();
+    state.first_hit_id = -1;
+    state.second_hit_done = false;
+}
+
+EnergyObservation make_energy_observation(const EnergyTruthFrame& truth, const SimConfig& cfg, std::mt19937& rng, bool occluded)
+{
+    EnergyObservation obs = truth.observation;
+    if (occluded) {
+        obs.detected = false;
+        for (auto& fan: obs.fans) {
+            fan.detected = false;
+        }
+        return obs;
+    }
+    obs.center_pos.x() += gauss(rng, cfg.pos_xy_sigma);
+    obs.center_pos.y() += gauss(rng, cfg.pos_xy_sigma);
+    obs.center_pos.z() += gauss(rng, cfg.pos_z_sigma);
+    obs.yaw = angles::normalize_angle(obs.yaw + gauss(rng, angles::from_degrees(cfg.yaw_sigma_deg)));
+    obs.raw_roll += gauss(rng, angles::from_degrees(cfg.yaw_sigma_deg));
+    return obs;
+}
+
+const EnergyAim* find_energy_aim(const std::vector<EnergyAim>& aims, int id)
+{
+    for (const auto& aim: aims) {
+        if (aim.id == id) {
+            return &aim;
+        }
+    }
+    return nullptr;
+}
+
+double estimate_energy_aim_cost(const EnergyAim& aim, double bullet_speed, double gimbal_yaw, double gimbal_pitch)
+{
+    Trajectory traj(aim.aim_pos, bullet_speed, command_yaw(aim.aim_pos));
+    double aim_yaw = traj.solvable() ? traj.get_yaw() : command_yaw(aim.aim_pos);
+    double aim_pitch = traj.solvable() ? traj.get_pitch() : -command_pitch(aim.aim_pos);
+    return std::abs(angles::shortest_angular_distance(gimbal_yaw, aim_yaw)) + std::abs(gimbal_pitch - aim_pitch);
+}
+
+EnergyAim select_energy_aim(const std::vector<EnergyAim>& aims, double bullet_speed, double gimbal_yaw, double gimbal_pitch, EnergySelectState& state)
+{
+    std::vector<EnergyAim> activating_aims;
+    for (const auto& aim: aims) {
+        if (aim.type == 0) {
+            activating_aims.push_back(aim);
+        }
+    }
+    if (activating_aims.empty()) {
+        state.active_fan_id = -1;
+        return {};
+    }
+    if (state.active_fan_id >= 0) {
+        auto it = std::find_if(activating_aims.begin(), activating_aims.end(), [&](const EnergyAim& aim) {
+            return aim.id == state.active_fan_id;
+        });
+        if (it != activating_aims.end()) {
+            return *it;
+        }
+        state.active_fan_id = -1;
+    }
+    auto best_it = std::min_element(activating_aims.begin(), activating_aims.end(), [&](const EnergyAim& lhs, const EnergyAim& rhs) {
+        return estimate_energy_aim_cost(lhs, bullet_speed, gimbal_yaw, gimbal_pitch)
+            < estimate_energy_aim_cost(rhs, bullet_speed, gimbal_yaw, gimbal_pitch);
+    });
+    state.active_fan_id = best_it->id;
+    return *best_it;
+}
+
+void latch_energy_gimbal_command(const EnergyCommandResult& cmd, double& yaw, double& pitch)
+{
+    if (cmd.hit.id < 0 || !std::isfinite(cmd.yaw_deg) || !std::isfinite(cmd.pitch_deg)) {
+        return;
+    }
+    yaw = angles::from_degrees(cmd.yaw_deg);
+    pitch = angles::from_degrees(cmd.pitch_deg);
+}
+
+void apply_small_hit(EnergyRuntimeState& state, int fan_id, int score, double impact_t, std::mt19937& rng)
+{
+    if (fan_id < 0 || fan_id >= 5) {
+        return;
+    }
+    if (score > 0 && state.fan_types[static_cast<size_t>(fan_id)] != 0) {
+        reset_small_runtime(state, impact_t, rng, "wrong_fan");
+        return;
+    }
+    if (score <= 0 || state.fan_types[static_cast<size_t>(fan_id)] != 0) {
+        return;
+    }
+    state.fan_types[static_cast<size_t>(fan_id)] = 1;
+    state.progress_group += 1;
+    if (state.progress_group >= 5) {
+        state.state = EnergyState::Activated;
+        state.fan_types.fill(1);
+        return;
+    }
+    state.phase_start_t = impact_t;
+    state.reset_reason = "none";
+    int next_id = choose_random_fan(rng, state.fan_types, 2);
+    if (next_id >= 0) {
+        state.fan_types[static_cast<size_t>(next_id)] = 0;
+    }
+}
+
+void apply_big_hit(EnergyRuntimeState& state, int fan_id, int score, double impact_t, std::mt19937& rng)
+{
+    if (fan_id < 0 || fan_id >= 5) {
+        return;
+    }
+    if (score > 0 && state.fan_types[static_cast<size_t>(fan_id)] != 0) {
+        reset_big_runtime(state, impact_t, rng, "wrong_fan");
+        return;
+    }
+    if (score <= 0 || state.fan_types[static_cast<size_t>(fan_id)] != 0) {
+        return;
+    }
+    if (!std::isfinite(state.first_hit_t)) {
+        state.progress_group += 1;
+        state.first_hit_t = impact_t;
+        state.first_hit_id = fan_id;
+        state.second_hit_done = false;
+        state.fan_types[static_cast<size_t>(fan_id)] = 1;
+        state.reset_reason = "none";
+        if (state.progress_group >= 5) {
+            double current_roll = energy_base_roll(state, impact_t);
+            state.state = EnergyState::Activated;
+            state.motion_anchor_t = impact_t;
+            state.roll_anchor = current_roll;
+            state.fan_types.fill(1);
+            state.first_hit_t = nan_v();
+            state.first_hit_id = -1;
+            state.second_hit_done = false;
+        }
+        return;
+    }
+    if (fan_id != state.first_hit_id) {
+        state.second_hit_done = true;
+        state.fan_types[static_cast<size_t>(fan_id)] = 1;
+    }
+}
+
 TrackerParamSet resolve_tracker_params(const SimConfig& cfg)
 {
     std::string path = cfg.params_file.empty() ? find_default_params_file() : cfg.params_file;
     if (path.empty()) {
         throw std::runtime_error("failed to find node_params.yaml, please pass --params-file");
     }
-    return load_tracker_params(path);
+    TrackerParamSet params = load_tracker_params(path);
+    params.energy.energy_radius = 0.70;
+    params.energy.w_max = 2.000;
+    return params;
 }
 
 } // namespace
@@ -558,7 +882,7 @@ Report AutoaimGenerator::run_top_tracker() const
     tracker.set_tracking_type(1);
 
     CameraParam cam = make_camera();
-    tracker.set_camera_info(cam);
+    tracker.set_camera_info(&cam);
 
     std::vector<CommandRow> rows;
     std::mt19937 rng(cfg_.seed + 37);
@@ -704,7 +1028,7 @@ Report AutoaimGenerator::run_top3_tracker() const
     tracker.set_params(tracker_params_.top3);
 
     CameraParam cam = make_camera();
-    tracker.set_camera_info(cam);
+    tracker.set_camera_info(&cam);
 
     std::vector<CommandRow> rows;
     std::mt19937 rng(cfg_.seed + 53);
@@ -827,6 +1151,195 @@ Report AutoaimGenerator::run_top3_tracker() const
     if (!cfg_.no_plot) {
         report.plot_path = build_plot_path(report.csv_path);
         write_svg_plot(report.plot_path, rows);
+    }
+    return report;
+}
+
+Report AutoaimGenerator::run_small_tracker() const
+{
+    return run_energy_tracker(false);
+}
+
+Report AutoaimGenerator::run_big_tracker() const
+{
+    return run_energy_tracker(true);
+}
+
+Report AutoaimGenerator::run_energy_tracker(bool big) const
+{
+    Report report;
+    report.tracker = big ? "BigEnergyTracker" : "SmallEnergyTracker";
+    report.mode = describe_mode(big ? "big" : "small", cfg_.preset);
+    double bullet_speed = resolved_bullet_speed(cfg_, false);
+    double distance = resolved_distance(cfg_, "energy");
+
+    SmallTracker small_tracker;
+    BigTracker big_tracker;
+    if (big) {
+        big_tracker.set_params(tracker_params_.energy);
+    } else {
+        small_tracker.set_params(tracker_params_.energy);
+    }
+
+    std::vector<EnergyCommandRow> rows;
+    std::mt19937 rng(cfg_.seed + (big ? 71 : 61));
+    EnergyRuntimeState runtime = make_energy_runtime(big, rng);
+    EnergySelectState pred_state;
+    double t = 0.0;
+    double duration_limit = cfg_.duration;
+    bool run_to_activation = !cfg_.duration_overridden;
+    int occlusion_left = 0;
+    bool has_prev = false;
+    bool has_future_prev = false;
+    double prev_t = 0.0;
+    double prev_yaw = 0.0;
+    double prev_pitch = 0.0;
+    double prev_future_t = 0.0;
+    double prev_future_yaw = 0.0;
+    double prev_future_pitch = 0.0;
+    double gimbal_yaw = 0.0;
+    double gimbal_pitch = 0.0;
+    double gimbal_cmd_yaw = 0.0;
+    double gimbal_cmd_pitch = 0.0;
+    std::vector<GimbalSample> gimbal_history = {{0.0, 0.0, 0.0}};
+    int total_score = 0;
+
+    while (run_to_activation || t <= duration_limit + 1e-9) {
+        gimbal_yaw = gimbal_cmd_yaw;
+        gimbal_pitch = gimbal_cmd_pitch;
+        record_gimbal_sample(gimbal_history, t, gimbal_yaw, gimbal_pitch);
+        bool stutter = false;
+        double dt = compute_dt(rng, cfg_, stutter);
+        bool occluded = is_occluded_frame(rng, cfg_, occlusion_left);
+        double prev_first_hit_t_before_advance = runtime.first_hit_t;
+        EnergyState prev_state_before_advance = runtime.state;
+        advance_energy_state(runtime, t, rng);
+        if ((std::isfinite(prev_first_hit_t_before_advance) && !std::isfinite(runtime.first_hit_t))
+            || prev_state_before_advance != runtime.state
+            || runtime.reset_reason != "none") {
+            pred_state.active_fan_id = -1;
+        }
+
+        double obs_t = std::max(0.0, t - cfg_.image_delay_ms * 0.001);
+        EnergyTruthFrame truth_obs = real_generator_.make_energy_truth(energy_base_roll(runtime, obs_t), runtime.fan_types);
+        EnergyObservation obs = make_energy_observation(truth_obs, cfg_, rng, occluded);
+        if (big) {
+            big_tracker.update(obs, t);
+        } else {
+            small_tracker.update(obs, t);
+        }
+
+        GimbalSample truth_gimbal = sample_gimbal(gimbal_history, t);
+        GimbalSample imu_gimbal = sample_gimbal(gimbal_history, std::max(0.0, t - cfg_.imu_delay_ms * 0.001));
+        double pred_gimbal_yaw = imu_gimbal.yaw + angles::from_degrees(cfg_.imu_yaw_bias_deg);
+        double truth_gimbal_yaw = truth_gimbal.yaw;
+        double latency_s = cfg_.latency_ms * 0.001;
+
+        auto pred_find_aim = [&](double pred_dt, int id) {
+            return big ? big_tracker.find_aim(pred_dt, id) : small_tracker.find_aim(pred_dt, id);
+        };
+        auto pred_select_at = [&](double query_t) {
+            std::vector<EnergyAim> aims = big ? big_tracker.get_aims(query_t) : small_tracker.get_aims(query_t);
+            return select_energy_aim(aims, bullet_speed, pred_gimbal_yaw, gimbal_pitch, pred_state);
+        };
+
+        EnergyCommandResult predicted = solve_energy_command(t, bullet_speed, latency_s, pred_gimbal_yaw, pred_select_at);
+        EnergyCommandResult truth_cmd;
+        if (predicted.hit.id >= 0) {
+            auto truth_same_id_at = [&](double query_t) {
+                EnergyTruthFrame truth_frame = real_generator_.make_energy_truth(energy_base_roll(runtime, query_t), runtime.fan_types);
+                const EnergyAim* truth_hit = find_energy_aim(truth_frame.aims, predicted.hit.id);
+                return truth_hit == nullptr ? EnergyAim {} : *truth_hit;
+            };
+            truth_cmd = solve_energy_command(t, bullet_speed, latency_s, truth_gimbal_yaw, truth_same_id_at);
+        }
+        update_energy_current_metrics(report, predicted, truth_cmd, t, has_prev, prev_t, prev_yaw, prev_pitch);
+
+        EnergyAim predicted_future = predicted.hit.id >= 0 ? pred_find_aim(0.08, predicted.hit.id) : EnergyAim {};
+        EnergyTruthFrame truth_future_frame = real_generator_.make_energy_truth(energy_base_roll(runtime, t + 0.08), runtime.fan_types);
+        const EnergyAim* truth_future_hit = find_energy_aim(truth_future_frame.aims, predicted.hit.id);
+        update_energy_future_metrics(
+            report, predicted_future, truth_future_hit == nullptr ? EnergyAim {} : *truth_future_hit, t,
+            has_future_prev, prev_future_t, prev_future_yaw, prev_future_pitch);
+
+        EnergyCommandResult raw_cmd = raw_energy_command(obs, predicted.hit.id, tracker_params_.energy.energy_radius, bullet_speed, pred_gimbal_yaw);
+        double impact_t = t + predicted.fly_time + latency_s;
+        EnergyTruthFrame truth_hit_frame = real_generator_.make_energy_truth(energy_base_roll(runtime, impact_t), runtime.fan_types);
+        const EnergyAim* truth_hit = find_energy_aim(truth_hit_frame.aims, predicted.hit.id);
+        int score = 0;
+        if (predicted.fire && truth_hit != nullptr) {
+            score = score_from_offset_m((predicted.hit.aim_pos - truth_hit->aim_pos).norm());
+        }
+
+        int prev_progress_group = runtime.progress_group;
+        bool prev_second_hit_done = runtime.second_hit_done;
+        EnergyState prev_state = runtime.state;
+        double prev_first_hit_t = runtime.first_hit_t;
+        if (big) {
+            apply_big_hit(runtime, predicted.hit.id, score, impact_t, rng);
+        } else {
+            apply_small_hit(runtime, predicted.hit.id, score, impact_t, rng);
+        }
+        if (runtime.progress_group != prev_progress_group
+            || runtime.second_hit_done != prev_second_hit_done
+            || runtime.state != prev_state
+            || runtime.reset_reason != "none"
+            || (std::isfinite(prev_first_hit_t) && !std::isfinite(runtime.first_hit_t))) {
+            pred_state.active_fan_id = -1;
+        }
+        bool hit_success = false;
+        if (big) {
+            if (runtime.progress_group > prev_progress_group) {
+                total_score = std::min(50, total_score + score);
+                hit_success = true;
+            } else if (!prev_second_hit_done && runtime.second_hit_done) {
+                hit_success = true;
+            }
+        } else if (runtime.progress_group > prev_progress_group || (prev_state != runtime.state && runtime.state == EnergyState::Activated)) {
+            total_score = std::min(50, total_score + score);
+            hit_success = true;
+        }
+
+        EnergyCommandRow row;
+        row.t = t;
+        row.dt_ms = dt * 1000.0;
+        row.stutter = stutter;
+        row.occluded = occluded;
+        row.selected_fan_id = predicted.hit.id;
+        row.raw_target_yaw_deg = raw_cmd.yaw_deg;
+        row.target_yaw_deg = predicted.yaw_deg;
+        row.truth_target_yaw_deg = truth_cmd.yaw_deg;
+        row.raw_target_pitch_deg = raw_cmd.pitch_deg;
+        row.target_pitch_deg = predicted.pitch_deg;
+        row.truth_target_pitch_deg = truth_cmd.pitch_deg;
+        row.score = total_score;
+        row.progress_group = runtime.progress_group;
+        row.lit_mask = energy_lit_mask(runtime.fan_types);
+        row.fire = predicted.fire;
+        row.hit_success = hit_success;
+        row.state = energy_state_name(runtime.state);
+        row.reset_reason = runtime.reset_reason;
+        row.raw_roll = obs.detected ? obs.raw_roll : nan_v();
+        row.pred_roll = predicted.hit.id >= 0 ? predicted.hit.roll : nan_v();
+        row.truth_roll = truth_cmd.hit.id >= 0 ? truth_cmd.hit.roll : nan_v();
+        rows.push_back(row);
+
+        latch_energy_gimbal_command(predicted, gimbal_cmd_yaw, gimbal_cmd_pitch);
+        report.occluded_frames += occluded ? 1 : 0;
+        report.stutter_frames += stutter ? 1 : 0;
+        report.max_vyaw_deg_s = std::max(report.max_vyaw_deg_s, std::abs(angles::to_degrees(energy_roll_speed(runtime, t))));
+        runtime.reset_reason = "none";
+        if (run_to_activation && runtime.state == EnergyState::Activated) {
+            break;
+        }
+        t += dt;
+    }
+
+    report.csv_path = build_csv_path(cfg_, big ? "big" : "small", big ? "big" : "small", distance, bullet_speed);
+    write_energy_csv(report.csv_path, rows);
+    if (!cfg_.no_plot) {
+        report.plot_path = build_energy_plot_path(report.csv_path);
+        write_energy_svg_plot(report.plot_path, rows, big);
     }
     return report;
 }

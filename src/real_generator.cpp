@@ -229,7 +229,7 @@ std::vector<ArmorAim> RealGenerator::make_top3_truth(double t, double& vyaw) con
 
     double cx = distance;
     double cy = -0.25;
-    double cz = 0.76;
+    double cz = 1.0;
     double dz = 0.102;
 
     std::vector<ArmorAim> aims;
@@ -250,6 +250,37 @@ std::vector<ArmorAim> RealGenerator::make_top3_truth(double t, double& vyaw) con
         aims.push_back(aim);
     }
     return aims;
+}
+
+EnergyTruthFrame RealGenerator::make_energy_truth(double base_roll, const std::array<int, 5>& fan_types) const
+{
+    EnergyTruthFrame frame;
+    double distance = resolved_distance(cfg_, "energy");
+    Eigen::Vector3d center(distance, 0.0, 2.0);
+    frame.observation.detected = true;
+    frame.observation.center_pos = center;
+    frame.observation.yaw = 0.0;
+    frame.observation.raw_roll = base_roll;
+    frame.aims.reserve(5);
+    for (int id = 0; id < 5; id++) {
+        double roll = base_roll + id * 2.0 * pi() / 5.0;
+        EnergyAim aim;
+        aim.id = id;
+        aim.type = fan_types[static_cast<size_t>(id)];
+        aim.center_pos = center;
+        aim.center_vel = Eigen::Vector3d::Zero();
+        aim.yaw = 0.0;
+        aim.roll = roll;
+        aim.energy_radius = 0.70;
+        aim.aim_pos = energy_fan_position(center, 0.0, roll, aim.energy_radius);
+        aim.last_seen_time = 0.0;
+        aim.trusted = true;
+        frame.aims.push_back(aim);
+        frame.observation.fans[static_cast<size_t>(id)].detected = true;
+        frame.observation.fans[static_cast<size_t>(id)].type = fan_types[static_cast<size_t>(id)];
+        frame.observation.fans[static_cast<size_t>(id)].id = id;
+    }
+    return frame;
 }
 
 ArmorObservation RealGenerator::make_observation(

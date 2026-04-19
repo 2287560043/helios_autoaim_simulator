@@ -18,6 +18,7 @@ public:
     ArmorAim make_standard_truth(double t, bool singer) const;
     std::vector<ArmorAim> make_top_truth(double t, double& vyaw) const;
     std::vector<ArmorAim> make_top3_truth(double t, double& vyaw) const;
+    EnergyTruthFrame make_energy_truth(double base_roll, const std::array<int, 5>& fan_types) const;
     ArmorObservation make_observation(
         const ArmorAim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng, double armor_pitch) const;
     std::vector<ArmorObservation> make_rotating_observations(

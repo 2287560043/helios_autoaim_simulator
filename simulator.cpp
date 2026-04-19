@@ -7,13 +7,13 @@ void print_help()
 {
     std::cout
         << "Usage: simulator [options]\n"
-        << "  --tracker all|simple|singer|top|top3\n"
+        << "  --tracker all|simple|singer|top|top3|small|big\n"
         << "  --preset default|clean|light_disturb|medium_disturb|heavy_disturb|extreme_disturb\n"
         << "  --standard-mode translate_const|translate_var\n"
         << "  --top-mode spin_const|spin_var|spin_const_translate_const|spin_var_translate_var|spin_const_height_var|spin_var_height_var\n"
         << "  --outpost-mode outpost_standard\n"
         << "  --fps <value>\n"
-        << "  --duration <seconds>\n"
+        << "  --duration <seconds>  (small/big 不传时默认跑完整个五符叶激活流程)\n"
         << "  --seed <int>\n"
         << "  --image-delay-ms <value>\n"
         << "  --imu-delay-ms <value>\n"
@@ -45,6 +45,8 @@ void print_help()
         << "  spin_const_height_var: 匀速陀螺 60rpm + 原地高度变化 0 -> 50cm -> 0 (周期5s)\n"
         << "  spin_var_height_var: 变速陀螺 20 -> 120 -> 60rpm + 原地高度变化 0 -> 40cm -> 0 (周期5s)\n"
         << "  outpost_standard: 前哨站 0.8pi rad/s 附近轻微波动\n"
+        << "  small: 小能量机关固定转速 + 激活流程\n"
+        << "  big: 大能量机关正弦转速 + 双亮靶激活流程\n"
         << "Disturb Presets:\n"
         << "  clean: 低噪声、无丢帧、无卡顿、自车扰动极小\n"
         << "  light_disturb: 轻度噪声、轻度丢帧和小幅溜车\n"
@@ -101,7 +103,10 @@ SimConfig parse_args(int argc, char** argv)
         else if (arg == "--outpost-mode") cfg.outpost_mode = next(arg);
         else if (arg == "--output-dir") cfg.output_dir = next(arg);
         else if (arg == "--fps") cfg.fps = std::stod(next(arg));
-        else if (arg == "--duration") cfg.duration = std::stod(next(arg));
+        else if (arg == "--duration") {
+            cfg.duration = std::stod(next(arg));
+            cfg.duration_overridden = true;
+        }
         else if (arg == "--seed") cfg.seed = std::stoi(next(arg));
         else if (arg == "--image-delay-ms") cfg.image_delay_ms = std::stod(next(arg));
         else if (arg == "--imu-delay-ms") cfg.imu_delay_ms = std::stod(next(arg));
@@ -171,6 +176,14 @@ int main(int argc, char** argv)
         if (cfg.tracker == "all" || cfg.tracker == "top3") {
             std::cerr << "running Top3Tracker..." << std::endl;
             reports.push_back(generator.run_top3_tracker());
+        }
+        if (cfg.tracker == "all" || cfg.tracker == "small") {
+            std::cerr << "running SmallEnergyTracker..." << std::endl;
+            reports.push_back(generator.run_small_tracker());
+        }
+        if (cfg.tracker == "all" || cfg.tracker == "big") {
+            std::cerr << "running BigEnergyTracker..." << std::endl;
+            reports.push_back(generator.run_big_tracker());
         }
 
         if (reports.empty()) {
