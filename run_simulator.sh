@@ -71,8 +71,9 @@ PCH_DEP="$BUILD_DIR/simulator.pch.d"
 SCRIPT_STAMP="$BUILD_DIR/.run_simulator_stamp"
 COMPILE_FLAGS=(
   -std=c++17
-  -O0
+  -O3
   -g0
+  -DNDEBUG
   -I"$PKG_DIR/autoaim_armor_predictor/include"
   -I"$PKG_DIR/autoaim_armor_predictor/include/armor_predictor"
   # -I"$PKG_DIR/autoaim_energy_predictor/include"
