@@ -252,6 +252,7 @@ std::vector<ArmorAim> RealGenerator::make_top3_truth(double t, double& vyaw) con
     return aims;
 }
 
+/*
 EnergyTruthFrame RealGenerator::make_energy_truth(double base_roll, const std::array<int, 5>& fan_types) const
 {
     EnergyTruthFrame frame;
@@ -282,6 +283,7 @@ EnergyTruthFrame RealGenerator::make_energy_truth(double base_roll, const std::a
     }
     return frame;
 }
+*/
 
 ArmorObservation RealGenerator::make_observation(
     const ArmorAim& truth, double t, const CameraParam& cam, const PoseSample& pose, std::mt19937& rng, double armor_pitch) const

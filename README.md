@@ -44,7 +44,7 @@
 | `heavy_disturb` | 更重噪声、更多丢包遮挡卡顿、更大溜车 |
 | `extreme_disturb` | 极端综合干扰 |
 
-默认仿真时长对 armor 目标是 `20s`。`small` 和 `big` 在不传 `--duration` 时，默认跑完整个五符叶激活流程。
+默认仿真时长对 armor 目标是 `20s`。
 
 ## 3. 常用启动命令
 
@@ -110,7 +110,7 @@
 # 指定距离和弹速
 ./autoaim_simulator/run_simulator.sh --tracker top3 --preset medium_disturb --distance-m 7 --bullet-speed 13.5
 
-# 六个 tracker 一起跑综合压力
+# 四个 tracker 一起跑综合压力
 ./autoaim_simulator/run_simulator.sh --tracker all --standard-mode translate_var --top-mode spin_var_translate_var --preset heavy_disturb
 ```
 
@@ -129,7 +129,7 @@
 
 ### Tracker 选择
 
-- `--tracker all|simple|singer|top|top3|small|big`
+- `--tracker all|simple|singer|top|top3`
 
 ### 模式选择
 

@@ -134,14 +134,14 @@ struct Report {
 
     bool pass() const
     {
-        if (tracker == "SmallEnergyTracker" || tracker == "BigEnergyTracker") {
-            return issues == 0
-                && max_cmd_yaw_err_deg < 8.0
-                && max_future_yaw_err_deg < 10.0
-                && max_cmd_pitch_err_deg < 8.0
-                && max_future_pitch_err_deg < 10.0
-                && max_center_speed < 5.0;
-        }
+        // if (tracker == "SmallEnergyTracker" || tracker == "BigEnergyTracker") {
+        //     return issues == 0
+        //         && max_cmd_yaw_err_deg < 8.0
+        //         && max_future_yaw_err_deg < 10.0
+        //         && max_cmd_pitch_err_deg < 8.0
+        //         && max_future_pitch_err_deg < 10.0
+        //         && max_center_speed < 5.0;
+        // }
         return issues == 0
             && max_cmd_yaw_step_deg < 20.0
             && max_future_yaw_step_deg < 24.0
@@ -168,6 +168,7 @@ struct CommandResult {
     bool solvable = false;
 };
 
+/* Energy simulator helpers are commented out for now.
 struct EnergyTruthFrame {
     EnergyObservation observation;
     std::vector<EnergyAim> aims;
@@ -205,6 +206,7 @@ struct EnergyCommandResult {
     bool solvable = false;
     bool fire = false;
 };
+*/
 
 inline double uniform01(std::mt19937& rng)
 {
@@ -214,7 +216,7 @@ inline double uniform01(std::mt19937& rng)
 inline double resolved_distance(const SimConfig& cfg, const std::string& tracker_family)
 {
     if (cfg.distance_m > 0.0) return cfg.distance_m;
-    if (tracker_family == "energy") return 2.0;
+    // if (tracker_family == "energy") return 2.0;
     if (tracker_family == "outpost") return 5.0;
     if (tracker_family == "top") return 3.0;
     return 1.5;
@@ -342,14 +344,6 @@ inline double truth_pitch_deg(const ArmorAim& hit, double bullet_speed, double g
     return angles::to_degrees(traj.solvable() ? traj.get_pitch() : -command_pitch(hit.aim_pos));
 }
 
-inline Eigen::Vector3d energy_fan_position(const Eigen::Vector3d& center, double yaw, double roll, double radius)
-{
-    return {
-        center.x() + radius * std::sin(roll) * std::sin(yaw),
-        center.y() - radius * std::sin(roll) * std::cos(yaw),
-        center.z() + radius * std::cos(roll)};
-}
-
 inline CommandResult raw_observation_command(const ArmorObservation& obs, double bullet_speed, double gimbal_yaw)
 {
     CommandResult result;
@@ -361,6 +355,15 @@ inline CommandResult raw_observation_command(const ArmorObservation& obs, double
     result.yaw_deg = angles::to_degrees(traj.solvable() ? traj.get_yaw() : command_yaw(obs.pos));
     result.pitch_deg = angles::to_degrees(traj.solvable() ? traj.get_pitch() : -command_pitch(obs.pos));
     return result;
+}
+
+/* Energy simulator helpers are commented out for now.
+inline Eigen::Vector3d energy_fan_position(const Eigen::Vector3d& center, double yaw, double roll, double radius)
+{
+    return {
+        center.x() + radius * std::sin(roll) * std::sin(yaw),
+        center.y() - radius * std::sin(roll) * std::cos(yaw),
+        center.z() + radius * std::cos(roll)};
 }
 
 inline EnergyCommandResult raw_energy_command(
@@ -384,6 +387,7 @@ inline EnergyCommandResult raw_energy_command(
     result.pitch_deg = angles::to_degrees(traj.solvable() ? traj.get_pitch() : -command_pitch(result.hit.aim_pos));
     return result;
 }
+*/
 
 inline const ArmorObservation* find_selected_observation(
     const std::vector<ArmorObservation>& raw_obs, const std::vector<ArmorObservation>& processed_obs, int selected_id)
@@ -460,6 +464,7 @@ CommandResult solve_command(double t, double bullet_speed, double latency_s, dou
     return result;
 }
 
+/* Energy simulator helpers are commented out for now.
 template <class SelectAt>
 EnergyCommandResult solve_energy_command(double t, double bullet_speed, double latency_s, double gimbal_yaw, SelectAt&& select_at)
 {
@@ -509,6 +514,7 @@ inline int energy_lit_mask(const std::array<int, 5>& fan_types)
     }
     return mask;
 }
+*/
 
 inline int score_from_offset_m(double offset_m)
 {
@@ -592,6 +598,7 @@ inline void update_future_metrics(
     has_prev = true;
 }
 
+/* Energy simulator helpers are commented out for now.
 inline void update_energy_current_metrics(
     Report& report, const EnergyCommandResult& predicted, const EnergyCommandResult& truth, double t,
     bool& has_prev, double& prev_t, double& prev_yaw, double& prev_pitch)
@@ -664,6 +671,7 @@ inline void update_energy_future_metrics(
     prev_pitch = pitch;
     has_prev = true;
 }
+*/
 
 inline void write_csv(const std::string& path, const std::vector<CommandRow>& rows)
 {
@@ -967,6 +975,7 @@ inline void write_svg_plot(const std::string& path, const std::vector<CommandRow
     out << "</svg>\n";
 }
 
+/* Energy simulator helpers are commented out for now.
 inline void write_energy_csv(const std::string& path, const std::vector<EnergyCommandRow>& rows)
 {
     std::filesystem::create_directories(std::filesystem::path(path).parent_path());
@@ -1288,6 +1297,7 @@ inline void write_energy_svg_plot(const std::string& path, const std::vector<Ene
 
     out << "</svg>\n";
 }
+*/
 
 inline std::string build_csv_path(const SimConfig& cfg, const std::string& tracker, const std::string& mode, double distance, double bullet_speed)
 {

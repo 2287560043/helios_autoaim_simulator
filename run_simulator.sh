@@ -54,8 +54,8 @@ BUILD_INPUTS=(
   "$SCRIPT_DIR/src/node_params.cpp"
   "$SCRIPT_DIR/src/real_generator.cpp"
   "$SCRIPT_DIR/src/autoaim_generator.cpp"
-  "$PKG_DIR/autoaim_energy_predictor/src/tracker/SmallTracker.cpp"
-  "$PKG_DIR/autoaim_energy_predictor/src/tracker/BigTracker.cpp"
+  # "$PKG_DIR/autoaim_energy_predictor/src/tracker/SmallTracker.cpp"
+  # "$PKG_DIR/autoaim_energy_predictor/src/tracker/BigTracker.cpp"
   "$PKG_DIR/autoaim_utilities/src/YawOptimizer.cpp"
   "$PKG_DIR/autoaim_utilities/src/BulletTrajectory.cpp"
   "$PKG_DIR/autoaim_armor_predictor/src/tracker/SimpleTracker.cpp"
@@ -75,7 +75,7 @@ COMPILE_FLAGS=(
   -g0
   -I"$PKG_DIR/autoaim_armor_predictor/include"
   -I"$PKG_DIR/autoaim_armor_predictor/include/armor_predictor"
-  -I"$PKG_DIR/autoaim_energy_predictor/include"
+  # -I"$PKG_DIR/autoaim_energy_predictor/include"
   -I"$PKG_DIR/autoaim_utilities/include"
   -I"$SCRIPT_DIR/dependencies"
   -isystem

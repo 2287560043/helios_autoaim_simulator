@@ -14,7 +14,7 @@ struct TrackerParamSet {
     SingerTracker::Params singer;
     ArmorDDMParams top;
     ArmorDCMParams top3;
-    EnergyParams energy;
+    // EnergyParams energy;
 };
 
 std::string find_default_params_file();

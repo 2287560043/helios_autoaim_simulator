@@ -1,7 +1,7 @@
 #include "../include/autoaim_generator.hpp"
 
-#include "energy_predictor/tracker/BigTracker.hpp"
-#include "energy_predictor/tracker/SmallTracker.hpp"
+// #include "energy_predictor/tracker/BigTracker.hpp"
+// #include "energy_predictor/tracker/SmallTracker.hpp"
 
 #include <stdexcept>
 
@@ -10,6 +10,7 @@ namespace helios_cv
 namespace
 {
 
+/* Energy simulator logic is commented out for now.
 enum class EnergyState { Activating, Activated };
 
 struct EnergySelectState {
@@ -327,6 +328,7 @@ void apply_big_hit(EnergyRuntimeState& state, int fan_id, int score, double impa
         state.fan_types[static_cast<size_t>(fan_id)] = 1;
     }
 }
+*/
 
 TrackerParamSet resolve_tracker_params(const SimConfig& cfg)
 {
@@ -335,8 +337,8 @@ TrackerParamSet resolve_tracker_params(const SimConfig& cfg)
         throw std::runtime_error("failed to find node_params.yaml, please pass --params-file");
     }
     TrackerParamSet params = load_tracker_params(path);
-    params.energy.energy_radius = 0.70;
-    params.energy.w_max = 2.000;
+    // params.energy.energy_radius = 0.70;
+    // params.energy.w_max = 2.000;
     return params;
 }
 
@@ -1155,6 +1157,7 @@ Report AutoaimGenerator::run_top3_tracker() const
     return report;
 }
 
+/*
 Report AutoaimGenerator::run_small_tracker() const
 {
     return run_energy_tracker(false);
@@ -1343,5 +1346,6 @@ Report AutoaimGenerator::run_energy_tracker(bool big) const
     }
     return report;
 }
+*/
 
 } // namespace helios_cv
